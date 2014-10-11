@@ -18,6 +18,12 @@
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
     /* Fill this in */
+	// Iterate through sr_instnce->sr_arpcache cache->requests
+	// If five times passed => Send fail to arpreq-> packets
+	// else, send arp request to IP and wait for response
+	//      if no response = update time/increment times sent
+	//      else, record arpentry, remove arp request, and send to all packets waiting
+	//
 }
 
 /* You should not need to touch the rest of this code. */
