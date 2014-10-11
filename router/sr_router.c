@@ -77,8 +77,35 @@ void sr_handlepacket(struct sr_instance* sr,
   assert(interface);
 
   printf("*** -> Received packet of length %d \n",len);
+	
+	/* Initialize reusable information */
+	struct sr_if *this_if = sr_get_interface(sr, interface);
 
-  /* fill in code here */
+	if (ethertype(packet) == ethertype_arp) {
+		struct sr_arp_hdr *arpHeader = (struct sr_arp_hdr *) packet;
 
+		/* TODO DO ARP REQUEST */
+		if (is_broadcast_mac(packet)) {
+			/* ARP request */
+
+		}	else if (this_if->ip == arpHeader->ar_tip) {
+			/* ARP reply */
+		}
+
+	} else if (ethertype(packet) == ethertype_ip) {
+		/* IP packet */
+		struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) packet;
+
+		if (this_if->ip == ipHeader->ip_dst) {
+			/* We are receiver. Process it */
+
+		} else {
+			/* We are not receiver. Forward it. */
+
+		}
+
+	}
+	
 }/* end sr_ForwardPacket */
+
 

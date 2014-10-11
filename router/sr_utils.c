@@ -4,6 +4,49 @@
 #include "sr_protocol.h"
 #include "sr_utils.h"
 
+/*
+ * Verify if this packet was broadcast
+ * MAC address must match ff-ff-ff-ff-ff-ff
+ */
+int is_broadcast_mac(uint8_t * packet) {
+	sr_ethernet_hdr_t *ehdr = (sr_ethernet_hdr_t *) packet;
+
+	int i;
+	for (i = 0; i < ETHER_ADDR_LEN; i++) {
+		if (ehdr->ether_dhost[i] != 0xff) {
+			return 0;		
+		}
+	}
+
+	return 1;
+}
+
+/*
+ * Verify packet is of right length for an ip packet
+ * and that checksum is valid
+ */
+int is_sane_ip_packet(uint8_t *packet, unsigned int len) {
+
+	/* Check packet size is valid */
+	if (len <= sizeof(struct sr_ip_hdr)) {
+		printf("Packet is too small %d) \n", len);
+		return 0;
+	}
+
+	struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) packet;
+
+	/* Verify checksum */
+	uint16_t expected = cksum(packet, len);
+	uint16_t actual = ipHeader->ip_sum;
+
+	if (expected != actual) {
+		printf("Expected checksum(%d) does not match given checksum(%d) \n", expected, actual);
+		return 0;
+	}
+	
+	/* Packet passes sanity checks */
+	return 1;
+}
 
 uint16_t cksum (const void *_data, int len) {
   const uint8_t *data = _data;

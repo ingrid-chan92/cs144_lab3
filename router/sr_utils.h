@@ -28,6 +28,9 @@
 #ifndef SR_UTILS_H
 #define SR_UTILS_H
 
+int is_broadcast_mac(uint8_t * packet);
+int is_sane_ip_packet(uint8_t * packet, unsigned int len);
+
 uint16_t cksum(const void *_data, int len);
 
 uint16_t ethertype(uint8_t *buf);
