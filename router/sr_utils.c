@@ -17,7 +17,33 @@ int is_broadcast_mac(uint8_t * packet) {
 			return 0;		
 		}
 	}
+	return 1;
+}
 
+/*
+ * Verify packet is of right length for an ICMP packet
+ * and that checksum is valid
+ */
+int is_sane_icmp_packet(uint8_t *packet, unsigned int len) {
+
+	/* Check packet size is valid */
+	if (len < (sizeof(struct sr_icmp_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_ethernet_hdr))) {
+		printf("ICMP Packet is too small %d) \n", len);
+		return 0;
+	}
+
+	struct sr_icmp_hdr *icmpHeader = (struct sr_icmp_hdr *) (packet + sizeof(struct sr_ip_hdr) + sizeof(struct sr_ethernet_hdr));
+
+	/* Verify checksum */
+	uint16_t expected = cksum(icmpHeader, sizeof(struct sr_icmp_hdr));
+	uint16_t actual = icmpHeader->icmp_sum;
+
+	if (expected != actual) {
+		printf("ICMP Expected checksum(%d) does not match given checksum(%d) \n", expected, actual);
+		return 0;
+	}
+	
+	/* Packet passes sanity checks */
 	return 1;
 }
 
@@ -28,19 +54,19 @@ int is_broadcast_mac(uint8_t * packet) {
 int is_sane_ip_packet(uint8_t *packet, unsigned int len) {
 
 	/* Check packet size is valid */
-	if (len <= sizeof(struct sr_ip_hdr)) {
-		printf("Packet is too small %d) \n", len);
+	if (len < (sizeof(struct sr_ip_hdr) + sizeof(struct sr_ethernet_hdr))) {
+		printf("IP Packet is too small %d) \n", len);
 		return 0;
 	}
 
-	struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) packet;
+	struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
 
 	/* Verify checksum */
-	uint16_t expected = cksum(packet, len);
+	uint16_t expected = cksum(ipHeader, sizeof(struct sr_ip_hdr));
 	uint16_t actual = ipHeader->ip_sum;
 
 	if (expected != actual) {
-		printf("Expected checksum(%d) does not match given checksum(%d) \n", expected, actual);
+		printf("IP Expected checksum(%d) does not match given checksum(%d) \n", expected, actual);
 		return 0;
 	}
 	

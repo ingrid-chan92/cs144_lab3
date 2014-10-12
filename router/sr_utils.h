@@ -30,6 +30,7 @@
 
 int is_broadcast_mac(uint8_t * packet);
 int is_sane_ip_packet(uint8_t * packet, unsigned int len);
+int is_sane_icmp_packet(uint8_t * packet, unsigned int len);
 
 uint16_t cksum(const void *_data, int len);
 

@@ -149,9 +149,23 @@ struct sr_ethernet_hdr
 typedef struct sr_ethernet_hdr sr_ethernet_hdr_t;
 
 
+enum sr_icmp_type {
+  icmp_echo_reply_type = 0x0000,	
+	icmp_unreachable_type = 0x0003,
+	icmp_echo_req_type = 0x0008,
+	icmp_time_exceeeded_type = 0x000b,
+};
+
+enum sr_icmp_code{
+  icmp_net_unreachable = 0x0000,
+	icmp_host_unreachable = 0x0001,
+	icmp_port_unreachable = 0x0003
+};
 
 enum sr_ip_protocol {
   ip_protocol_icmp = 0x0001,
+	ip_protocol_tcp = 0x0006,
+	ip_protocol_udp = 0x0011
 };
 
 enum sr_ethertype {

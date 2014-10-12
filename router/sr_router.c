@@ -21,6 +21,7 @@
 #include "sr_protocol.h"
 #include "sr_arpcache.h"
 #include "sr_utils.h"
+#include "icmp_handler.h"
 
 /*---------------------------------------------------------------------
  * Method: sr_init(void)
@@ -81,31 +82,70 @@ void sr_handlepacket(struct sr_instance* sr,
 	/* Initialize reusable information */
 	struct sr_if *this_if = sr_get_interface(sr, interface);
 
-	if (ethertype(packet) == ethertype_arp) {
-		struct sr_arp_hdr *arpHeader = (struct sr_arp_hdr *) packet;
+	if (ethertype(packet) == ethertype_arp) {			/* ARP packet */
+		struct sr_arp_hdr *arpHeader = (struct sr_arp_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
 
-		/* TODO DO ARP REQUEST */
-		if (is_broadcast_mac(packet)) {
-			/* ARP request */
+		if (is_broadcast_mac(packet) || this_if->ip == arpHeader->ar_tip) {
+			/* TODO DO ARP REQUEST */
 
-		}	else if (this_if->ip == arpHeader->ar_tip) {
-			/* ARP reply */
 		}
 
-	} else if (ethertype(packet) == ethertype_ip) {
-		/* IP packet */
-		struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) packet;
+	} else if (ethertype(packet) == ethertype_ip) { 	/* IP packet */
+		struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
 
 		if (this_if->ip == ipHeader->ip_dst) {
-			/* We are receiver. Process it */
+			/* We are destination */
+			processIP(sr, packet, len, interface);			
 
 		} else {
-			/* We are not receiver. Forward it. */
-
+			/* We are not destination. Forward it. */
+			processForward(sr, packet, len, interface);
 		}
-
 	}
 	
-}/* end sr_ForwardPacket */
+}
 
+void processIP(struct sr_instance* sr,
+        uint8_t * packet,
+        unsigned int len,
+        char* interface) {
 
+	struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
+
+	if (ipHeader->ip_p == ip_protocol_icmp) {
+		/* ICMP request */ 
+
+		/* Ignore invalid packets */ 
+		if (!is_sane_icmp_packet(packet, len)) {
+			return;
+		}			
+
+		/* Process ICMP only if echo*/ 
+		struct sr_icmp_hdr *icmpHeader = (struct sr_icmp_hdr *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+		if (icmpHeader->icmp_type == icmp_echo_req_type) {
+			icmp_send_echo_reply(sr, packet, len, interface);
+		}
+
+	} else if (ipHeader->ip_p == ip_protocol_tcp || ipHeader->ip_p == ip_protocol_udp) {
+		/* TCP or UDP Payload */
+		icmp_send_port_unreachable(sr, packet, len, interface);
+
+	}
+
+}
+
+void processForward(struct sr_instance* sr,
+        uint8_t * packet,
+        unsigned int len,
+        char* interface) {
+/*	
+	// Ignore invalid packets 
+	if (!is_sane_ip_packet(packet, len)) {		
+		return;
+	}
+
+	struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
+	// TODO 
+
+*/
+}
