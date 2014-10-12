@@ -118,7 +118,15 @@ void processIP(struct sr_instance* sr,
 		/* Ignore invalid packets */ 
 		if (!is_sane_icmp_packet(packet, len)) {
 			return;
-		}			
+		}	
+
+		ipHeader->ip_ttl--;
+
+		/* Reply with timeout if TTL exceeded */
+		if (ipHeader->ip_ttl == 0) {
+			icmp_send_time_exceeded(sr, packet, len, interface);
+			return;
+		}
 
 		/* Process ICMP only if echo*/ 
 		struct sr_icmp_hdr *icmpHeader = (struct sr_icmp_hdr *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));

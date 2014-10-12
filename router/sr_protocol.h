@@ -153,7 +153,7 @@ enum sr_icmp_type {
   icmp_echo_reply_type = 0x0000,	
 	icmp_unreachable_type = 0x0003,
 	icmp_echo_req_type = 0x0008,
-	icmp_time_exceeeded_type = 0x000b,
+	icmp_time_exceeded_type = 0x000b,
 };
 
 enum sr_icmp_code{
