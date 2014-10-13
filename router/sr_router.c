@@ -12,6 +12,7 @@
  **********************************************************************/
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 
 
@@ -22,6 +23,7 @@
 #include "sr_arpcache.h"
 #include "sr_utils.h"
 #include "icmp_handler.h"
+#include "arp_handler.h"
 
 /*---------------------------------------------------------------------
  * Method: sr_init(void)
@@ -86,23 +88,52 @@ void sr_handlepacket(struct sr_instance* sr,
 		struct sr_arp_hdr *arpHeader = (struct sr_arp_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
 
 		if (is_broadcast_mac(packet) || this_if->ip == arpHeader->ar_tip) {
-			/* TODO DO ARP REQUEST */
+			/* Process only broadcasted packets or packets meant for me */
+			processArp(sr, packet, len, interface);
 
 		}
 
 	} else if (ethertype(packet) == ethertype_ip) { 	/* IP packet */
-		struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
+			struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
 
-		if (this_if->ip == ipHeader->ip_dst) {
-			/* We are destination */
-			processIP(sr, packet, len, interface);			
+			if (this_if->ip == ipHeader->ip_dst) {
+				/* We are destination */
+				processIP(sr, packet, len, interface);			
 
-		} else {
-			/* We are not destination. Forward it. */
-			processForward(sr, packet, len, interface);
-		}
+			} else {
+				/* We are not destination. Forward it. */
+				processForward(sr, packet, len, interface);
+			}
 	}
 	
+}
+
+void processArp(struct sr_instance *sr , uint8_t *packet, unsigned int len, char *interface) {
+
+	struct sr_arp_hdr *arpHeader = (struct sr_arp_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
+	struct sr_arpcache cache = sr->cache;
+
+	unsigned short command = ntohs(arpHeader->ar_op);
+	if (command == arp_op_request) {		
+			/* Reply to sender with our information */
+			arp_send_reply(sr, packet, len, interface);
+
+	} else if (command == arp_op_reply) {
+			/* Put ARP reply into cache */
+			struct sr_arpreq *req = sr_arpcache_insert(&cache, arpHeader->ar_sha, arpHeader->ar_sip);
+
+			if (req != NULL) {
+				/* Found requests in queue waiting for this reply. Send all waiting packets */ 
+				struct sr_packet *waiting = req->packets;
+				while (waiting != NULL) {
+					arp_send_waiting_packet(sr, waiting->buf, waiting->len, waiting->iface, arpHeader->ar_sha, arpHeader->ar_sip);
+					waiting = waiting->next;
+				}
+
+				/* Destroy arp request when complete */
+				sr_arpreq_destroy(&cache, req);
+			}
+	}
 }
 
 void processIP(struct sr_instance* sr,
