@@ -80,8 +80,7 @@ void sr_handlepacket(struct sr_instance* sr,
   assert(interface);
 
   printf("*** -> Received packet of length %d \n",len);
-	
-	/* Initialize reusable information */
+
 	struct sr_if *this_if = sr_get_interface(sr, interface);
 
 	if (ethertype(packet) == ethertype_arp) {			/* ARP packet */
@@ -90,7 +89,6 @@ void sr_handlepacket(struct sr_instance* sr,
 		if (is_broadcast_mac(packet) || this_if->ip == arpHeader->ar_tip) {
 			/* Process only broadcasted packets or packets meant for me */
 			processArp(sr, packet, len, interface);
-
 		}
 
 	} else if (ethertype(packet) == ethertype_ip) { 	/* IP packet */
@@ -99,13 +97,11 @@ void sr_handlepacket(struct sr_instance* sr,
 			if (this_if->ip == ipHeader->ip_dst) {
 				/* We are destination */
 				processIP(sr, packet, len, interface);			
-
 			} else {
 				/* We are not destination. Forward it. */
 				processForward(sr, packet, len, interface);
 			}
-	}
-	
+	}	
 }
 
 void processArp(struct sr_instance *sr , uint8_t *packet, unsigned int len, char *interface) {
@@ -114,25 +110,26 @@ void processArp(struct sr_instance *sr , uint8_t *packet, unsigned int len, char
 	struct sr_arpcache cache = sr->cache;
 
 	unsigned short command = ntohs(arpHeader->ar_op);
-	if (command == arp_op_request) {		
-			/* Reply to sender with our information */
-			arp_send_reply(sr, packet, len, interface);
+	if (command == arp_op_request) {	
+	
+		/* Reply to sender with our information */
+		arp_send_reply(sr, packet, len, interface);
 
 	} else if (command == arp_op_reply) {
-			/* Put ARP reply into cache */
-			struct sr_arpreq *req = sr_arpcache_insert(&cache, arpHeader->ar_sha, arpHeader->ar_sip);
+		/* Put ARP reply into cache */
+		struct sr_arpreq *req = sr_arpcache_insert(&cache, arpHeader->ar_sha, arpHeader->ar_sip);
 
-			if (req != NULL) {
-				/* Found requests in queue waiting for this reply. Send all waiting packets */ 
-				struct sr_packet *waiting = req->packets;
-				while (waiting != NULL) {
-					arp_send_waiting_packet(sr, waiting->buf, waiting->len, waiting->iface, arpHeader->ar_sha, arpHeader->ar_sip);
-					waiting = waiting->next;
-				}
-
-				/* Destroy arp request when complete */
-				sr_arpreq_destroy(&cache, req);
+		if (req != NULL) {
+			/* Found requests in queue waiting for this reply. Send all waiting packets */ 
+			struct sr_packet *waiting = req->packets;
+			while (waiting != NULL) {
+				send_packet_to_dest(sr, waiting->buf, waiting->len, waiting->iface, arpHeader->ar_sha, arpHeader->ar_sip);
+				waiting = waiting->next;
 			}
+
+			/* Destroy arp request when complete */
+			sr_arpreq_destroy(&cache, req);
+		}
 	}
 }
 
@@ -177,14 +174,56 @@ void processForward(struct sr_instance* sr,
         uint8_t * packet,
         unsigned int len,
         char* interface) {
-/*	
-	// Ignore invalid packets 
+
+	/* Ignore invalid packets */ 
 	if (!is_sane_ip_packet(packet, len)) {		
 		return;
 	}
 
 	struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
-	// TODO 
 
-*/
+	ipHeader->ip_ttl = ipHeader->ip_ttl - htonl(1);
+	/* Reply with timeout if TTL exceeded */
+	if (ipHeader->ip_ttl == 0) {
+		icmp_send_time_exceeded(sr, packet, len, interface);
+		return;
+	}
+
+	/* At this point, all checks passed, check routing table */
+	struct sr_rt *rt = sr->routing_table;
+	struct sr_rt *closestMatch = findLongestMatchPrefix(rt, ipHeader);
+		
+	if (closestMatch == NULL) {
+		/* No match found. Send net unreachable */
+		icmp_send_net_unreachable(sr, packet, len, interface);
+
+	} else {
+		/* Match found. Lookup MAC address in ARP cache */
+		struct sr_arpcache cache = sr->cache;
+		struct sr_arpentry *arpEntry = sr_arpcache_lookup(&cache, ntohl(ipHeader->ip_dst));
+
+		if (arpEntry != NULL) {
+			/* Found MAC address. Send the packet */
+			send_packet_to_dest(sr, packet, len, interface, arpEntry->mac, arpEntry->ip);
+
+		} else {
+			/* Could not find MAC address. Queue request */
+			struct sr_arpreq *req = sr_arpcache_queuereq(&cache, ntohl(ipHeader->ip_dst), packet, len, interface);
+			free(req);
+		}
+	}	
+}
+
+struct sr_rt *findLongestMatchPrefix(struct sr_rt *rt, struct sr_ip_hdr *ipHeader) {
+	struct sr_rt *closestMatch = NULL; 
+	while (rt != NULL) {
+		uint32_t mask = rt->mask.s_addr;	
+		if ((ntohl(ipHeader->ip_dst) & mask) == (rt->dest.s_addr & mask)) {
+			if (closestMatch == NULL || (mask > closestMatch->mask.s_addr)) {
+				closestMatch = rt;
+			}
+		}
+		rt = rt->next;
+	}
+	return closestMatch;
 }

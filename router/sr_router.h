@@ -70,6 +70,7 @@ void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
 void processIP(struct sr_instance* , uint8_t * , unsigned int , char* );
 void processForward(struct sr_instance* , uint8_t * , unsigned int , char* );
 void processArp(struct sr_instance* , uint8_t * , unsigned int , char* );
+struct sr_rt *findLongestMatchPrefix(struct sr_rt *, struct sr_ip_hdr *);
 
 /* -- sr_if.c -- */
 void sr_add_interface(struct sr_instance* , const char* );

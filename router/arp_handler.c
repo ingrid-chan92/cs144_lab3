@@ -14,6 +14,7 @@
 #include "sr_utils.h"
 #include "sr_if.h"
 #include "arp_handler.h"
+#include "sr_protocol.h"
 
 void arp_send_reply(struct sr_instance *sr , uint8_t *packet, unsigned int len, char *interface) {
 
@@ -40,7 +41,7 @@ void arp_send_reply(struct sr_instance *sr , uint8_t *packet, unsigned int len, 
     replyArp->ar_hln = arpHeader->ar_hln;
     replyArp->ar_pln = arpHeader->ar_pln;
     replyArp->ar_op = htons(arp_op_reply);
-    replyArp->ar_sip = htons(sourceIf->ip);
+    replyArp->ar_sip = htonl(sourceIf->ip);
     replyArp->ar_tip = arpHeader->ar_sip;
     for (i = 0; i < ETHER_ADDR_LEN; i++) {
         replyArp->ar_sha[i] = sourceIf->addr[i];
@@ -53,7 +54,7 @@ void arp_send_reply(struct sr_instance *sr , uint8_t *packet, unsigned int len, 
 
 }
 
-void arp_send_waiting_packet(struct sr_instance *sr , uint8_t *packet, unsigned int len, char *interface, unsigned char *dest_mac, uint32_t dest_ip) {
+void send_packet_to_dest(struct sr_instance *sr , uint8_t *packet, unsigned int len, char *interface, unsigned char *dest_mac, uint32_t dest_ip) {
     
     int i;
     struct sr_ethernet_hdr *ethHeader = (struct sr_ethernet_hdr *) packet;
@@ -63,12 +64,49 @@ void arp_send_waiting_packet(struct sr_instance *sr , uint8_t *packet, unsigned 
     for (i = 0; i < ETHER_ADDR_LEN; i++) {
         ethHeader->ether_dhost[i] = dest_mac[i];
     }
-    ipHeader->ip_dst = htons(dest_ip);
+    ipHeader->ip_dst = htonl(dest_ip);
 
     sr_send_packet(sr, packet, len, interface);	
 
 }
 
-void arp_send_request(struct sr_instance *sr , uint8_t *packet, unsigned int len, char *interface) {
+void arp_send_request(struct sr_instance *sr , struct sr_arpreq *arpReq) {
+
+	int i;
+	struct sr_packet *pkt = arpReq->packets;  
+
+	while (pkt != NULL) {		
+		struct sr_if *sourceIf = sr_get_interface(sr, pkt->iface);
+		
+		/* Initialize request packet */
+		uint8_t *req = malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
+		struct sr_ethernet_hdr *reqEth = (struct sr_ethernet_hdr *) req;
+		struct sr_arp_hdr *reqArp = (struct sr_arp_hdr *) (req + sizeof(struct sr_ethernet_hdr));
+		
+		/* Construct ethernet header */        
+		for (i = 0; i < ETHER_ADDR_LEN; i++) {
+		    reqEth->ether_dhost[i] = 0xff;
+		    reqEth->ether_shost[i] = sourceIf->addr[i];
+		}
+		reqEth->ether_type = htons(ethertype_arp);
+
+		/* Construct ARP header */
+		reqArp->ar_hrd = htons(arp_hrd_ethernet);
+		reqArp->ar_pro = htons(0x0800);				/*IPv4 protocol type*/
+		reqArp->ar_hln = htons(6);					/*Ethernet addresses size*/
+		reqArp->ar_pln = htons(4);					/*IPv4 address size*/
+		reqArp->ar_op = htons(arp_op_request);
+		reqArp->ar_sip = htonl(sourceIf->ip);
+		reqArp->ar_tip = 0x0000;
+		for (i = 0; i < ETHER_ADDR_LEN; i++) {
+		    reqArp->ar_sha[i] = sourceIf->addr[i];
+		    reqArp->ar_tha[i] = 0xff;
+		}
+
+		sr_send_packet(sr, req, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), pkt->iface);	
+		free(req);
+
+		pkt = pkt->next;
+	}
 
 }

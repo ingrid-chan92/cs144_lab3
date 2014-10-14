@@ -37,7 +37,7 @@ void icmp_set_ip_hdr(uint32_t source, struct sr_ip_hdr *received, struct sr_ip_h
 	#endif 
 
 	response->ip_tos = 0;
-	response->ip_len = htons(sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr));
+	response->ip_len = htonl(sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr));
 	response->ip_id = 0;
 	response->ip_off = 0;
 	response->ip_ttl = 255;
@@ -101,8 +101,8 @@ void icmp_send_generic(struct sr_instance* sr,
         uint8_t * packet/* lent */,
         unsigned int len,
         char* interface/* lent */,
-		uint8_t type,
-		uint8_t code) 
+	uint8_t type,
+	uint8_t code) 
 {
 	
 	uint8_t *response = malloc(PACKET_SIZE);
