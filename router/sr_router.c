@@ -205,10 +205,12 @@ void processForward(struct sr_instance* sr,
 		if (arpEntry != NULL) {
 			/* Found MAC address. Send the packet */
 			send_packet_to_dest(sr, packet, len, interface, arpEntry->mac, arpEntry->ip);
+			free(arpEntry);
 
 		} else {
 			/* Could not find MAC address. Queue request */
 			struct sr_arpreq *req = sr_arpcache_queuereq(&cache, ntohl(ipHeader->ip_dst), packet, len, interface);
+			handle_arpreq(sr, req);
 			free(req);
 		}
 	}	
