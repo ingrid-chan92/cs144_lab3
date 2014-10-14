@@ -25,7 +25,7 @@ void icmp_set_ethernet_hdr(unsigned char *source, struct sr_ethernet_hdr *receiv
 	response->ether_type = htons(ethertype_ip);
 }
 
-void icmp_set_ip_hdr(uint32_t source, struct sr_ip_hdr *received, struct sr_ip_hdr *response) {
+void icmp_set_ip_hdr(uint32_t source, struct sr_ip_hdr *received, struct sr_ip_hdr *response, int len) {
 	#if __BYTE_ORDER == __LITTLE_ENDIAN
 		response->ip_hl = 4;
 		response->ip_v = 4;
@@ -37,7 +37,7 @@ void icmp_set_ip_hdr(uint32_t source, struct sr_ip_hdr *received, struct sr_ip_h
 	#endif 
 
 	response->ip_tos = 0;
-	response->ip_len = htons(sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr) + 8);
+	response->ip_len = htons(len - sizeof(sr_ethernet_hdr_t));
 	response->ip_id = 0;
 	response->ip_off = IP_DF;
 	response->ip_ttl = htons(64);
@@ -96,7 +96,7 @@ void icmp_send_net_unreachable(struct sr_instance* sr,
         unsigned int len,
         char* interface/* lent */)
 {
-	icmp_send_generic(sr, packet, len, interface, icmp_unreachable_type, icmp_net_unreachable);
+	icmp_send_generic(sr, packet, sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t) + 8, interface, icmp_unreachable_type, icmp_net_unreachable);
 }
 
 void icmp_send_host_unreachable(struct sr_instance* sr,
@@ -104,7 +104,7 @@ void icmp_send_host_unreachable(struct sr_instance* sr,
         unsigned int len,
         char* interface/* lent */)
 {
-	icmp_send_generic(sr, packet, len, interface, icmp_unreachable_type, icmp_host_unreachable);
+	icmp_send_generic(sr, packet, sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t) + 8, interface, icmp_unreachable_type, icmp_host_unreachable);
 }
 
 void icmp_send_port_unreachable(struct sr_instance* sr,
@@ -112,7 +112,7 @@ void icmp_send_port_unreachable(struct sr_instance* sr,
         unsigned int len,
         char* interface/* lent */)
 {
-	icmp_send_generic(sr, packet, len, interface, icmp_unreachable_type, icmp_port_unreachable);
+	icmp_send_generic(sr, packet, sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t) + 8, interface, icmp_unreachable_type, icmp_port_unreachable);
 }
 
 void icmp_send_time_exceeded(struct sr_instance* sr,
@@ -130,19 +130,17 @@ void icmp_send_generic(struct sr_instance* sr,
 	uint8_t type,
 	uint8_t code) 
 {
-	int packet_size = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t) + 8;
-
-	uint8_t *response = malloc(packet_size);
+	uint8_t *response = malloc(len);
 
 	/* Set contents of response */
 	icmp_set_ethernet_hdr(sr_get_interface(sr, interface)->addr, (struct sr_ethernet_hdr *) packet, (struct sr_ethernet_hdr *) response);
 	icmp_set_ip_hdr(	sr_get_interface(sr, interface)->ip,
 						(struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr)), 
-						(struct sr_ip_hdr *) (response + sizeof(struct sr_ethernet_hdr)));
+						(struct sr_ip_hdr *) (response + sizeof(struct sr_ethernet_hdr)), len);
 	icmp_set_icmp_hdr(	(struct sr_icmp_hdr *) (response + sizeof(struct sr_ip_hdr) + sizeof(struct sr_ethernet_hdr)),
 						type, code);
 
-	sr_send_packet(sr, response, packet_size, interface);
+	sr_send_packet(sr, response, len, interface);
 	free(response);
 }
 

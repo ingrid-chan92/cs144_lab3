@@ -6,7 +6,7 @@
 #include "sr_router.h"
 
 void icmp_set_ethernet_hdr(unsigned char *, struct sr_ethernet_hdr *, struct sr_ethernet_hdr *);
-void icmp_set_ip_hdr(uint32_t, struct sr_ip_hdr *, struct sr_ip_hdr *);
+void icmp_set_ip_hdr(uint32_t, struct sr_ip_hdr *, struct sr_ip_hdr *, int len);
 void icmp_set_icmp_hdr(struct sr_icmp_hdr *, uint8_t, uint8_t);
 
 
