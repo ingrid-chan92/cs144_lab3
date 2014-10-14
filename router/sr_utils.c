@@ -35,8 +35,9 @@ int is_sane_icmp_packet(uint8_t *packet, unsigned int len) {
 	struct sr_icmp_hdr *icmpHeader = (struct sr_icmp_hdr *) (packet + sizeof(struct sr_ip_hdr) + sizeof(struct sr_ethernet_hdr));
 
 	/* Verify checksum */
-	uint16_t expected = cksum(icmpHeader, sizeof(struct sr_icmp_hdr));
 	uint16_t actual = icmpHeader->icmp_sum;
+	icmpHeader->icmp_sum = 0;
+	uint16_t expected = cksum(icmpHeader, len - sizeof(struct sr_ip_hdr) - sizeof(struct sr_ethernet_hdr));	
 
 	if (expected != actual) {
 		printf("ICMP Expected checksum(%d) does not match given checksum(%d) \n", expected, actual);
@@ -61,9 +62,10 @@ int is_sane_ip_packet(uint8_t *packet, unsigned int len) {
 
 	struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
 
-	/* Verify checksum */
-	uint16_t expected = cksum(ipHeader, sizeof(struct sr_ip_hdr));
+	/* Verify checksum */	
 	uint16_t actual = ipHeader->ip_sum;
+	ipHeader->ip_sum = 0;
+	uint16_t expected = cksum(ipHeader, len - sizeof(struct sr_ethernet_hdr));
 
 	if (expected != actual) {
 		printf("IP Expected checksum(%d) does not match given checksum(%d) \n", expected, actual);

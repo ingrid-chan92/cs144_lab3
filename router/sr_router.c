@@ -111,7 +111,7 @@ void processArp(struct sr_instance *sr , uint8_t *packet, unsigned int len, char
 
 	unsigned short command = ntohs(arpHeader->ar_op);
 	if (command == arp_op_request) {	
-	
+
 		/* Reply to sender with our information */
 		arp_send_reply(sr, packet, len, interface);
 

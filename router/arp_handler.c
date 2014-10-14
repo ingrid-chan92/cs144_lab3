@@ -23,7 +23,7 @@ void arp_send_reply(struct sr_instance *sr , uint8_t *packet, unsigned int len, 
     struct sr_if *sourceIf = sr_get_interface(sr, interface);
     struct sr_ethernet_hdr *ethHeader = (struct sr_ethernet_hdr *) packet;
 	struct sr_arp_hdr *arpHeader = (struct sr_arp_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
-    
+
     /* Initialize reply packet */
     uint8_t *reply = malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
     struct sr_ethernet_hdr *replyEth = (struct sr_ethernet_hdr *) reply;
@@ -42,7 +42,7 @@ void arp_send_reply(struct sr_instance *sr , uint8_t *packet, unsigned int len, 
     replyArp->ar_hln = arpHeader->ar_hln;
     replyArp->ar_pln = arpHeader->ar_pln;
     replyArp->ar_op = htons(arp_op_reply);
-    replyArp->ar_sip = htonl(sourceIf->ip);
+    replyArp->ar_sip = sourceIf->ip;
     replyArp->ar_tip = arpHeader->ar_sip;
     for (i = 0; i < ETHER_ADDR_LEN; i++) {
         replyArp->ar_sha[i] = sourceIf->addr[i];
@@ -50,7 +50,6 @@ void arp_send_reply(struct sr_instance *sr , uint8_t *packet, unsigned int len, 
     }
 
     sr_send_packet(sr, reply, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), interface);	
-
     free(reply);
 
 }
@@ -66,6 +65,7 @@ void send_packet_to_dest(struct sr_instance *sr , uint8_t *packet, unsigned int 
         ethHeader->ether_dhost[i] = dest_mac[i];
     }
     ipHeader->ip_dst = htonl(dest_ip);
+	ipHeader->ip_sum = cksum(ipHeader, len - sizeof(struct sr_ethernet_hdr));
 
     sr_send_packet(sr, packet, len, interface);	
 
@@ -97,7 +97,7 @@ void arp_send_request(struct sr_instance *sr , struct sr_arpreq *arpReq) {
 		reqArp->ar_hln = htons(6);					/*Ethernet addresses size*/
 		reqArp->ar_pln = htons(4);					/*IPv4 address size*/
 		reqArp->ar_op = htons(arp_op_request);
-		reqArp->ar_sip = htonl(sourceIf->ip);
+		reqArp->ar_sip = sourceIf->ip;
 		reqArp->ar_tip = 0x0000;
 		for (i = 0; i < ETHER_ADDR_LEN; i++) {
 		    reqArp->ar_sha[i] = sourceIf->addr[i];
