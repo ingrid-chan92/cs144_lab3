@@ -64,7 +64,31 @@ void icmp_send_echo_reply(struct sr_instance* sr,
         unsigned int len,
         char* interface/* lent */)
 {
-	icmp_send_generic(sr, packet, len, interface, icmp_echo_reply_type, 0);
+	/* Modify and resend packet at echo reply */
+
+	/* Ethernet header */
+	int i;
+	unsigned char *sourceEth = sr_get_interface(sr, interface)->addr;
+	struct sr_ethernet_hdr *ethHeader = (struct sr_ethernet_hdr *) packet;
+	for (i = 0; i < ETHER_ADDR_LEN; i++) {
+		ethHeader->ether_dhost[i] = ethHeader->ether_shost[i];
+		ethHeader->ether_shost[i] = sourceEth[i];
+	}
+
+	/* IP header */
+	uint32_t sourceIP = sr_get_interface(sr, interface)->ip;
+	struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t));
+	ipHeader->ip_dst = ipHeader->ip_src;
+	ipHeader->ip_src = sourceIP;	
+	ipHeader->ip_sum = 0;
+	ipHeader->ip_sum = cksum(ipHeader, sizeof(struct sr_ip_hdr));
+
+	/* ICMP header */
+	struct sr_icmp_hdr *icmpHeader = (struct sr_icmp_hdr *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+	icmpHeader->icmp_type = htons(icmp_echo_reply_type);
+	icmpHeader->icmp_code = htons(0);
+
+	sr_send_packet(sr, packet, len, interface);	
 }
 
 void icmp_send_net_unreachable(struct sr_instance* sr,
