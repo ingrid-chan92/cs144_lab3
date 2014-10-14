@@ -113,20 +113,23 @@ void arp_send_request(struct sr_instance *sr , struct sr_arpreq *arpReq) {
 
 void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
 
-	if (req->times_sent >= 5) {
-		/* Max number of ARP requests send. Host is unreachable */
-		struct sr_packet *pkt = req->packets;  
-		while (pkt != NULL) {
-			icmp_send_host_unreachable(sr, pkt->buf, pkt->len, pkt->iface);
-			pkt = pkt->next;
-		}
-		sr_arpreq_destroy(&(sr->cache), req);
+	if (difftime(time(NULL), req->sent) > 1.0) {
+		if (req->times_sent >= 5) {
+			/* Max number of ARP requests send. Host is unreachable */
+			struct sr_packet *pkt = req->packets;  
+			while (pkt != NULL) {
+				icmp_send_host_unreachable(sr, pkt->buf, pkt->len, pkt->iface);
+				pkt = pkt->next;
+			}
+			sr_arpreq_destroy(&(sr->cache), req);
 
-	} else {
-		/* Can send request again */
-		arp_send_request(sr, req);			
-		req->times_sent++;
-		req->sent = time(NULL);
+		} else {
+			/* Can send request again */
+			arp_send_request(sr, req);			
+			req->times_sent++;
+			req->sent = time(NULL);
+		}
+		req = req->next;
 	}
-	req = req->next;
+
 }
