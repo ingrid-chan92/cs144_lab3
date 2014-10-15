@@ -40,7 +40,7 @@ void icmp_set_ip_hdr(uint32_t source, struct sr_ip_hdr *received, struct sr_ip_h
 	response->ip_len = htons(len - sizeof(sr_ethernet_hdr_t));
 	response->ip_id = 0;
 	response->ip_off = IP_DF;
-	response->ip_ttl = htons(64);
+	response->ip_ttl = 64;
 	response->ip_p = ip_protocol_icmp;
 
 	/* Recevier is now destination. We are source */
@@ -48,15 +48,8 @@ void icmp_set_ip_hdr(uint32_t source, struct sr_ip_hdr *received, struct sr_ip_h
 	response->ip_dst = received->ip_src;
 
 	response->ip_sum = 0;
-	response->ip_sum = cksum(received, sizeof(struct sr_ip_hdr));
+	response->ip_sum = cksum(received, sizeof(sr_ip_hdr_t));
 
-}
-
-void icmp_set_icmp_hdr(struct sr_icmp_hdr *response, uint8_t type, uint8_t code) {
-	response->icmp_type = type;
-	response->icmp_code = code;
-	response->icmp_sum = 0;
-	response->icmp_sum = cksum(response, sizeof(struct sr_icmp_hdr));
 }
 
 void icmp_send_echo_reply(struct sr_instance* sr,
@@ -96,7 +89,7 @@ void icmp_send_net_unreachable(struct sr_instance* sr,
         unsigned int len,
         char* interface/* lent */)
 {
-	icmp_send_generic(sr, packet, sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t) + 8, interface, icmp_unreachable_type, icmp_net_unreachable);
+	icmp_send_type3(sr, packet, len, interface, icmp_net_unreachable);
 }
 
 void icmp_send_host_unreachable(struct sr_instance* sr,
@@ -104,7 +97,7 @@ void icmp_send_host_unreachable(struct sr_instance* sr,
         unsigned int len,
         char* interface/* lent */)
 {
-	icmp_send_generic(sr, packet, sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t) + 8, interface, icmp_unreachable_type, icmp_host_unreachable);
+	icmp_send_type3(sr, packet, len, interface, icmp_host_unreachable);
 }
 
 void icmp_send_port_unreachable(struct sr_instance* sr,
@@ -112,7 +105,7 @@ void icmp_send_port_unreachable(struct sr_instance* sr,
         unsigned int len,
         char* interface/* lent */)
 {
-	icmp_send_generic(sr, packet, sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t) + 8, interface, icmp_unreachable_type, icmp_port_unreachable);
+	icmp_send_type3(sr, packet, len, interface, icmp_port_unreachable);
 }
 
 void icmp_send_time_exceeded(struct sr_instance* sr,
@@ -137,10 +130,45 @@ void icmp_send_generic(struct sr_instance* sr,
 	icmp_set_ip_hdr(	sr_get_interface(sr, interface)->ip,
 						(struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr)), 
 						(struct sr_ip_hdr *) (response + sizeof(struct sr_ethernet_hdr)), len);
-	icmp_set_icmp_hdr(	(struct sr_icmp_hdr *) (response + sizeof(struct sr_ip_hdr) + sizeof(struct sr_ethernet_hdr)),
-						type, code);
+
+	/* Initialize generic ICMP header */
+	struct sr_icmp_hdr *icmpResponse = (struct sr_icmp_hdr *) (response + sizeof(struct sr_ip_hdr) + sizeof(struct sr_ethernet_hdr));
+	icmpResponse->icmp_type = type;
+	icmpResponse->icmp_code = code;
+	icmpResponse->icmp_sum = 0;
+	icmpResponse->icmp_sum = cksum(icmpResponse, sizeof(struct sr_icmp_hdr));
 
 	sr_send_packet(sr, response, len, interface);
 	free(response);
 }
 
+void icmp_send_type3(struct sr_instance* sr,
+        uint8_t * packet/* lent */,
+        unsigned int len,
+        char* interface/* lent */,
+	uint8_t code) 
+{
+	int newLen = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
+	uint8_t *response = malloc(newLen);
+
+	/* Set contents of response */
+	icmp_set_ethernet_hdr(sr_get_interface(sr, interface)->addr, (struct sr_ethernet_hdr *) packet, (struct sr_ethernet_hdr *) response);
+	icmp_set_ip_hdr(	sr_get_interface(sr, interface)->ip,
+						(struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t)), 
+						(struct sr_ip_hdr *) (response + sizeof(sr_ethernet_hdr_t)), newLen);
+	
+	/* Initialize type3 ICMP header */
+	struct sr_icmp_t3_hdr *icmpResponse = (struct sr_icmp_t3_hdr *) (response + sizeof(sr_ip_hdr_t) + sizeof(sr_ethernet_hdr_t));
+	icmpResponse->icmp_type = icmp_unreachable_type;
+	icmpResponse->icmp_code = code;
+	icmpResponse->unused = 0;
+	icmpResponse->next_mtu = 0;
+	memcpy(icmpResponse->data, response + sizeof(sr_ethernet_hdr_t), sizeof(sr_ip_hdr_t));
+	memcpy(icmpResponse->data + sizeof(sr_ip_hdr_t), packet, 8);
+print_hdrs(response, newLen);
+	icmpResponse->icmp_sum = 0;
+	icmpResponse->icmp_sum = cksum(icmpResponse, sizeof(sr_icmp_t3_hdr_t) + 8);
+
+	sr_send_packet(sr, response, newLen, interface);
+	free(response);
+}
