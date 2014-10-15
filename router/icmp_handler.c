@@ -4,7 +4,7 @@
  * Description:
  *
  * This file contains all functions used to send ICMP messages
- * 
+ *
  *
  **********************************************************************/
 #include <stdlib.h>
@@ -15,7 +15,7 @@
 
 
 void icmp_set_ethernet_hdr(unsigned char *source, struct sr_ethernet_hdr *received, struct sr_ethernet_hdr *response) {
-	int i;	
+	int i;
 
 	/* Recevier is now destination. We are source */
 	for (i = 0; i < ETHER_ADDR_LEN; i++) {
@@ -37,10 +37,10 @@ void icmp_set_ip_hdr(uint32_t source, struct sr_ip_hdr *received, struct sr_ip_h
 	#endif 
 
 	response->ip_tos = 0;
-	response->ip_len = htonl(sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr));
+	response->ip_len = htons(sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr));
 	response->ip_id = 0;
 	response->ip_off = 0;
-	response->ip_ttl = 255;
+	response->ip_ttl = htons(255);
 	response->ip_p = htons(ip_protocol_icmp);
 
 	/* Recevier is now destination. We are source */
@@ -48,7 +48,7 @@ void icmp_set_ip_hdr(uint32_t source, struct sr_ip_hdr *received, struct sr_ip_h
 	response->ip_dst = received->ip_src;
 
 	response->ip_sum = 0;
-	response->ip_sum = cksum(received, sizeof(struct sr_ip_hdr));	
+	response->ip_sum = cksum(received, sizeof(struct sr_ip_hdr));
 
 }
 
@@ -106,9 +106,9 @@ void icmp_send_generic(struct sr_instance* sr,
 	uint8_t type,
 	uint8_t code) 
 {
-	
+
 	uint8_t *response = malloc(PACKET_SIZE);
-	
+
 	/* Set contents of response */
 	icmp_set_ethernet_hdr(sr_get_interface(sr, interface)->addr, (struct sr_ethernet_hdr *) packet, (struct sr_ethernet_hdr *) response);
 	icmp_set_ip_hdr(	sr_get_interface(sr, interface)->ip,
@@ -116,7 +116,7 @@ void icmp_send_generic(struct sr_instance* sr,
 						(struct sr_ip_hdr *) (response + sizeof(struct sr_ethernet_hdr)));
 	icmp_set_icmp_hdr(	(struct sr_icmp_hdr *) (response + sizeof(struct sr_ip_hdr) + sizeof(struct sr_ethernet_hdr)),
 						type, code);
-	
+print_hdrs(response, PACKET_SIZE);
 
 	sr_send_packet(sr, response, PACKET_SIZE, interface);	
 	free(response);

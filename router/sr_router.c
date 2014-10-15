@@ -48,7 +48,7 @@ void sr_init(struct sr_instance* sr)
     pthread_t thread;
 
     pthread_create(&thread, &(sr->attr), sr_arpcache_timeout, sr);
-    
+
     /* Add initialization code here! */
 
 } /* -- sr_init -- */
@@ -92,16 +92,15 @@ void sr_handlepacket(struct sr_instance* sr,
 		}
 
 	} else if (ethertype(packet) == ethertype_ip) { 	/* IP packet */
-			struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
-
-			if (this_if->ip == ipHeader->ip_dst) {
-				/* We are destination */
-				processIP(sr, packet, len, interface);			
-			} else {
-				/* We are not destination. Forward it. */
-				processForward(sr, packet, len, interface);
-			}
-	}	
+		struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
+		if (we_are_dest(sr, ipHeader->ip_dst)) {
+			/* We are destination */
+			processIP(sr, packet, len, interface);
+		} else {
+			/* We are not destination. Forward it. */
+			processForward(sr, packet, len, interface);
+		}
+	}
 }
 
 void processArp(struct sr_instance *sr , uint8_t *packet, unsigned int len, char *interface) {
@@ -110,8 +109,7 @@ void processArp(struct sr_instance *sr , uint8_t *packet, unsigned int len, char
 	struct sr_arpcache cache = sr->cache;
 
 	unsigned short command = ntohs(arpHeader->ar_op);
-	if (command == arp_op_request) {	
-
+	if (command == arp_op_request) {
 		/* Reply to sender with our information */
 		arp_send_reply(sr, packet, len, interface);
 
@@ -141,12 +139,12 @@ void processIP(struct sr_instance* sr,
 	struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
 
 	if (ipHeader->ip_p == ip_protocol_icmp) {
-		/* ICMP request */ 
+		/* ICMP request */
 
-		/* Ignore invalid packets */ 
+		/* Ignore invalid packets */
 		if (!is_sane_icmp_packet(packet, len)) {
 			return;
-		}	
+		}
 
 		ipHeader->ip_ttl--;
 
@@ -156,7 +154,7 @@ void processIP(struct sr_instance* sr,
 			return;
 		}
 
-		/* Process ICMP only if echo*/ 
+		/* Process ICMP only if echo*/
 		struct sr_icmp_hdr *icmpHeader = (struct sr_icmp_hdr *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
 		if (icmpHeader->icmp_type == icmp_echo_req_type) {
 			icmp_send_echo_reply(sr, packet, len, interface);
@@ -175,8 +173,8 @@ void processForward(struct sr_instance* sr,
         unsigned int len,
         char* interface) {
 
-	/* Ignore invalid packets */ 
-	if (!is_sane_ip_packet(packet, len)) {		
+	/* Ignore invalid packets */
+	if (!is_sane_ip_packet(packet, len)) {
 		return;
 	}
 
@@ -192,7 +190,7 @@ void processForward(struct sr_instance* sr,
 	/* At this point, all checks passed, check routing table */
 	struct sr_rt *rt = sr->routing_table;
 	struct sr_rt *closestMatch = findLongestMatchPrefix(rt, ipHeader);
-		
+
 	if (closestMatch == NULL) {
 		/* No match found. Send net unreachable */
 		icmp_send_net_unreachable(sr, packet, len, interface);
@@ -214,6 +212,17 @@ void processForward(struct sr_instance* sr,
 			free(req);
 		}
 	}	
+}
+
+int we_are_dest(struct sr_instance *sr, uint32_t ip) {
+	struct sr_if *if_list = sr->if_list;
+	while (if_list != NULL) {
+		if (if_list->ip == ip) {
+			return 1;
+		}
+		if_list = if_list->next;
+	}
+	return 0;
 }
 
 struct sr_rt *findLongestMatchPrefix(struct sr_rt *rt, struct sr_ip_hdr *ipHeader) {
