@@ -37,11 +37,11 @@ void icmp_set_ip_hdr(uint32_t source, struct sr_ip_hdr *received, struct sr_ip_h
 	#endif 
 
 	response->ip_tos = 0;
-	response->ip_len = htons(sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr));
+	response->ip_len = htons(sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr) + 8);
 	response->ip_id = 0;
-	response->ip_off = 0;
-	response->ip_ttl = htons(255);
-	response->ip_p = htons(ip_protocol_icmp);
+	response->ip_off = IP_DF;
+	response->ip_ttl = htons(64);
+	response->ip_p = ip_protocol_icmp;
 
 	/* Recevier is now destination. We are source */
 	response->ip_src = source;
@@ -130,8 +130,9 @@ void icmp_send_generic(struct sr_instance* sr,
 	uint8_t type,
 	uint8_t code) 
 {
+	int packet_size = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t) + 8;
 
-	uint8_t *response = malloc(PACKET_SIZE);
+	uint8_t *response = malloc(packet_size);
 
 	/* Set contents of response */
 	icmp_set_ethernet_hdr(sr_get_interface(sr, interface)->addr, (struct sr_ethernet_hdr *) packet, (struct sr_ethernet_hdr *) response);
@@ -140,9 +141,8 @@ void icmp_send_generic(struct sr_instance* sr,
 						(struct sr_ip_hdr *) (response + sizeof(struct sr_ethernet_hdr)));
 	icmp_set_icmp_hdr(	(struct sr_icmp_hdr *) (response + sizeof(struct sr_ip_hdr) + sizeof(struct sr_ethernet_hdr)),
 						type, code);
-print_hdrs(response, PACKET_SIZE);
 
-	sr_send_packet(sr, response, PACKET_SIZE, interface);	
+	sr_send_packet(sr, response, packet_size, interface);
 	free(response);
 }
 

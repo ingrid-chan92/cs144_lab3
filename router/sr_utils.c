@@ -14,7 +14,7 @@ int is_broadcast_mac(uint8_t * packet) {
 	int i;
 	for (i = 0; i < ETHER_ADDR_LEN; i++) {
 		if (ehdr->ether_dhost[i] != 0xff) {
-			return 0;		
+			return 0;
 		}
 	}
 	return 1;
@@ -43,7 +43,7 @@ int is_sane_icmp_packet(uint8_t *packet, unsigned int len) {
 		printf("ICMP Expected checksum(%d) does not match given checksum(%d) \n", expected, actual);
 		return 0;
 	}
-	
+
 	/* Packet passes sanity checks */
 	return 1;
 }
@@ -65,7 +65,7 @@ int is_sane_ip_packet(uint8_t *packet, unsigned int len) {
 	/* Verify checksum */	
 	uint16_t actual = ipHeader->ip_sum;
 	ipHeader->ip_sum = 0;
-	uint16_t expected = cksum(ipHeader, len - sizeof(struct sr_ethernet_hdr));
+	uint16_t expected = cksum(ipHeader, sizeof(struct sr_ip_hdr));
 
 	if (expected != actual) {
 		printf("IP Expected checksum(%d) does not match given checksum(%d) \n", expected, actual);

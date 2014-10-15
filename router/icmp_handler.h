@@ -5,10 +5,6 @@
 #include "sr_protocol.h"
 #include "sr_router.h"
 
-#ifndef PACKET_SIZE
-#define PACKET_SIZE sizeof(struct sr_icmp_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_ethernet_hdr)
-#endif
-
 void icmp_set_ethernet_hdr(unsigned char *, struct sr_ethernet_hdr *, struct sr_ethernet_hdr *);
 void icmp_set_ip_hdr(uint32_t, struct sr_ip_hdr *, struct sr_ip_hdr *);
 void icmp_set_icmp_hdr(struct sr_icmp_hdr *, uint8_t, uint8_t);
