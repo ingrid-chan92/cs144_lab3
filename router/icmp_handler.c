@@ -164,6 +164,13 @@ void icmp_send_type3(struct sr_instance* sr,
 	/* IP header */
 	uint32_t sourceIP = sr_get_interface(sr, interface)->ip;
 	struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (response + sizeof(sr_ethernet_hdr_t));
+
+	ipHeader->ip_hl = 4;
+	ipHeader->ip_v = 4;
+	ipHeader->ip_tos = 0;
+	ipHeader->ip_id = 0;
+	ipHeader->ip_off = IP_DF;
+	ipHeader->ip_ttl = 64;
 	ipHeader->ip_dst = ipHeader->ip_src;
 	ipHeader->ip_src = sourceIP;	
 	ipHeader->ip_len = htons(newLen - sizeof(sr_ethernet_hdr_t));
