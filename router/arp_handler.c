@@ -16,6 +16,7 @@
 #include "arp_handler.h"
 #include "icmp_handler.h"
 #include "sr_protocol.h"
+#include "sr_rt.h"
 
 void arp_send_reply(struct sr_instance *sr , uint8_t *packet, unsigned int len, char *interface) {
 
@@ -74,8 +75,8 @@ void send_packet_to_dest(struct sr_instance *sr , uint8_t *packet, unsigned int 
 void arp_send_request(struct sr_instance *sr , struct sr_arpreq *arpReq) {
 
 	int i;
-	struct sr_packet *pkt = arpReq->packets;  
-	struct sr_if *sourceIf = sr_get_interface(sr, pkt->iface);
+	struct sr_rt *rt = findLongestMatchPrefix(sr->routing_table, arpReq->ip);
+	struct sr_if *sourceIf = sr_get_interface(sr, rt->interface);
 	
 	/* Initialize request packet */
 	uint8_t *req = malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
@@ -101,7 +102,7 @@ void arp_send_request(struct sr_instance *sr , struct sr_arpreq *arpReq) {
 	    reqArp->ar_tha[i] = 0xff;
 	}
 
-	sr_send_packet(sr, req, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), pkt->iface);
+	sr_send_packet(sr, req, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), rt->interface);
 	free(req);
 
 }

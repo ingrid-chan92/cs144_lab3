@@ -28,6 +28,7 @@
 #ifndef SR_UTILS_H
 #define SR_UTILS_H
 
+struct sr_rt *findLongestMatchPrefix(struct sr_rt *, uint32_t);
 int is_broadcast_mac(uint8_t * packet);
 int is_sane_ip_packet(uint8_t * packet, unsigned int len);
 int is_sane_icmp_packet(uint8_t * packet, unsigned int len);
