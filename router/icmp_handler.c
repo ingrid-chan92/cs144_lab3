@@ -180,8 +180,8 @@ void icmp_send_type3(struct sr_instance* sr,
 
 	/* type3 ICMP header */
 	struct sr_icmp_t3_hdr *icmpResponse = (struct sr_icmp_t3_hdr *) (response + sizeof(sr_ip_hdr_t) + sizeof(sr_ethernet_hdr_t));
-	icmpResponse->icmp_type = icmp_unreachable_type;
-	icmpResponse->icmp_code = code;
+	icmpResponse->icmp_type = htons(icmp_unreachable_type);
+	icmpResponse->icmp_code = htons(code);
 	icmpResponse->unused = 0;
 	icmpResponse->next_mtu = 0;
 	if((sizeof(sr_ip_hdr_t) + 8) > ICMP_DATA_SIZE) {
