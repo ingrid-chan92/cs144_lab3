@@ -89,7 +89,8 @@ void arp_send_request(struct sr_instance *sr , struct sr_arpreq *arpReq) {
 	    reqEth->ether_shost[i] = sourceIf->addr[i];
 	}
 	reqEth->ether_type = htons(ethertype_arp);
-		/* Construct ARP header */
+
+	/* Construct ARP header */
 	reqArp->ar_hrd = htons(arp_hrd_ethernet);
 	reqArp->ar_pro = htons(0x0800);				/*IPv4 protocol type*/
 	reqArp->ar_hln = htons(6);					/*Ethernet addresses size*/
