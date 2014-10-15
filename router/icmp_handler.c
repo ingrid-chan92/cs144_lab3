@@ -53,8 +53,8 @@ void icmp_set_ip_hdr(uint32_t source, struct sr_ip_hdr *received, struct sr_ip_h
 }
 
 void icmp_set_icmp_hdr(struct sr_icmp_hdr *response, uint8_t type, uint8_t code) {
-	response->icmp_type = htons(type);
-	response->icmp_code = htons(code);
+	response->icmp_type = type;
+	response->icmp_code = code;
 	response->icmp_sum = 0;
 	response->icmp_sum = cksum(response, sizeof(struct sr_icmp_hdr));
 }
