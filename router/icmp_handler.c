@@ -151,25 +151,37 @@ void icmp_send_type3(struct sr_instance* sr,
 	int newLen = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
 	uint8_t *response = malloc(newLen);
 
-	/* Set contents of response */
-	icmp_set_ethernet_hdr(sr_get_interface(sr, interface)->addr, (struct sr_ethernet_hdr *) packet, (struct sr_ethernet_hdr *) response);
-	icmp_set_ip_hdr(	sr_get_interface(sr, interface)->ip,
-						(struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t)), 
-						(struct sr_ip_hdr *) (response + sizeof(sr_ethernet_hdr_t)), newLen);
+	/* Ethernet header */
+	int i;
+	unsigned char *sourceEth = sr_get_interface(sr, interface)->addr;
+	struct sr_ethernet_hdr *ethHeader = (struct sr_ethernet_hdr *) response;
+	for (i = 0; i < ETHER_ADDR_LEN; i++) {
+		ethHeader->ether_dhost[i] = ethHeader->ether_shost[i];
+		ethHeader->ether_shost[i] = sourceEth[i];
+	}
+	ethHeader->ether_type = htons(ethertype_ip);
 
-	/* Initialize type3 ICMP header */
+	/* IP header */
+	uint32_t sourceIP = sr_get_interface(sr, interface)->ip;
+	struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (response + sizeof(sr_ethernet_hdr_t));
+	ipHeader->ip_dst = ipHeader->ip_src;
+	ipHeader->ip_src = sourceIP;	
+	ipHeader->ip_len = htons(newLen - sizeof(sr_ethernet_hdr_t));
+	ipHeader->ip_p = ip_protocol_icmp;
+	ipHeader->ip_sum = 0;
+	ipHeader->ip_sum = cksum(ipHeader, sizeof(struct sr_ip_hdr));
+
+	/* type3 ICMP header */
 	struct sr_icmp_t3_hdr *icmpResponse = (struct sr_icmp_t3_hdr *) (response + sizeof(sr_ip_hdr_t) + sizeof(sr_ethernet_hdr_t));
 	icmpResponse->icmp_type = icmp_unreachable_type;
 	icmpResponse->icmp_code = code;
 	icmpResponse->unused = 0;
 	icmpResponse->next_mtu = 0;
-
 	if((sizeof(sr_ip_hdr_t) + 8) > ICMP_DATA_SIZE) {
 		memcpy(icmpResponse->data, packet + sizeof(sr_ethernet_hdr_t), ICMP_DATA_SIZE);
 	} else {
 		memcpy(icmpResponse->data, packet + sizeof(sr_ethernet_hdr_t), sizeof(sr_ip_hdr_t) + 8);
 	}
-
 	icmpResponse->icmp_sum = 0;
 	icmpResponse->icmp_sum = cksum(icmpResponse, sizeof(sr_icmp_t3_hdr_t));
 
