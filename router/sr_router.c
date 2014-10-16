@@ -83,7 +83,6 @@ void sr_handlepacket(struct sr_instance* sr,
 
 	if (ethertype(packet) == ethertype_arp) {			/* ARP packet */
 		struct sr_arp_hdr *arpHeader = (struct sr_arp_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
-
 		if (is_broadcast_mac(packet) || we_are_dest(sr, arpHeader->ar_tip)) {
 			/* Process only broadcasted packets or packets meant for me */
 			processArp(sr, packet, len, interface);
@@ -108,6 +107,7 @@ void processArp(struct sr_instance *sr , uint8_t *packet, unsigned int len, char
 	/* Put ARP header into cache */
 	struct sr_arpreq *req = sr_arpcache_insert(&(sr->cache), arpHeader->ar_sha, ntohl(arpHeader->ar_sip));
 	if (req != NULL) {
+
 		/* Found requests in queue waiting for this reply. Send all waiting packets */ 
 		struct sr_packet *waiting = req->packets;
 		while (waiting != NULL) {

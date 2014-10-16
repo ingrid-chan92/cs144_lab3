@@ -58,15 +58,19 @@ void arp_send_reply(struct sr_instance *sr , uint8_t *packet, unsigned int len, 
 void send_packet_to_dest(struct sr_instance *sr , uint8_t *packet, unsigned int len, char *interface, unsigned char *dest_mac, uint32_t dest_ip) {
 
     int i;
+	struct sr_if *sourceIf = sr_get_interface(sr, interface);
     struct sr_ethernet_hdr *ethHeader = (struct sr_ethernet_hdr *) packet;
-    struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
+    struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t));
 
     /* send the given packet to the destination mac and ip */   
     for (i = 0; i < ETHER_ADDR_LEN; i++) {
+		ethHeader->ether_shost[i] = sourceIf->addr[i];
         ethHeader->ether_dhost[i] = dest_mac[i];
     }
-    ipHeader->ip_dst = htonl(dest_ip);
-	ipHeader->ip_sum = cksum(ipHeader, len - sizeof(struct sr_ethernet_hdr));
+    ipHeader->ip_dst = dest_ip;
+	ipHeader->ip_src = sourceIf->ip;
+	ipHeader->ip_sum = 0;
+	ipHeader->ip_sum = cksum(ipHeader, sizeof(sr_ip_hdr_t));
 
     sr_send_packet(sr, packet, len, interface);	
 
