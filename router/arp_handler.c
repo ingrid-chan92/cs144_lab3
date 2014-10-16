@@ -75,19 +75,13 @@ void send_packet_to_dest(struct sr_instance *sr , uint8_t *packet, unsigned int 
 void arp_send_request(struct sr_instance *sr , struct sr_arpreq *arp) {
 
 	int i;
-	struct sr_rt *rt = findLongestMatchPrefix(sr->routing_table, arp->ip);
-	if (rt == NULL) {
-		/* No matching prefix */
-		printf("No matching Prefix found for %d", arp->ip);
-		return;
-	}
-
+	struct sr_rt *rt = findLongestMatchPrefix(sr->routing_table, htonl(arp->ip));
 	struct sr_if *sourceIf = sr_get_interface(sr, rt->interface);
 
 	/* Initialize request packet */
-	uint8_t *req = malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
+	uint8_t *req = malloc(sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t));
 	struct sr_ethernet_hdr *reqEth = (struct sr_ethernet_hdr *) req;
-	struct sr_arp_hdr *reqArp = (struct sr_arp_hdr *) (req + sizeof(struct sr_ethernet_hdr));
+	struct sr_arp_hdr *reqArp = (struct sr_arp_hdr *) (req + sizeof(sr_ethernet_hdr_t));
 
 	/* Construct ethernet header */
 	for (i = 0; i < ETHER_ADDR_LEN; i++) {
@@ -98,19 +92,17 @@ void arp_send_request(struct sr_instance *sr , struct sr_arpreq *arp) {
 
 	/* Construct ARP header */
 	reqArp->ar_hrd = htons(arp_hrd_ethernet);
-	reqArp->ar_pro = htons(ethertype_ip);				/*IPv4 protocol type*/
-	reqArp->ar_hln = 6;					/*Ethernet addresses size*/
-	reqArp->ar_pln = 4;					/*IPv4 address size*/
+	reqArp->ar_pro = htons(ethertype_ip);			/*IPv4 protocol type*/
+	reqArp->ar_hln = 6;								/*Ethernet addresses size*/
+	reqArp->ar_pln = 4;								/*IPv4 address size*/
 	reqArp->ar_op = htons(arp_op_request);
 	reqArp->ar_sip = sourceIf->ip;
-	reqArp->ar_tip = 0;
+	reqArp->ar_tip = rt->gw.s_addr;
 	for (i = 0; i < ETHER_ADDR_LEN; i++) {
-		reqArp->ar_tha[i] = 0x0;
-	    reqArp->ar_sha[i] = sourceIf->addr[i];
+		reqArp->ar_tha[i] = 0x00;
+		reqArp->ar_sha[i] = sourceIf->addr[i];
 	}
-
-	sr_send_packet(sr, req, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), sourceIf->name);
-	free(req);
+	sr_send_packet(sr, req, sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t), sourceIf->name);
 
 }
 
