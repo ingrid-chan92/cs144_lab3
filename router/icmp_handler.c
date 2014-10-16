@@ -169,8 +169,7 @@ void icmp_send_type3(struct sr_instance* sr,
 	ipHeader->ip_hl = 5;
 	ipHeader->ip_v = 4;
 	ipHeader->ip_tos = 0;
-	ipHeader->ip_id = 0;
-	ipHeader->ip_off = IP_DF;
+	ipHeader->ip_off = 0;
 	ipHeader->ip_ttl = 64;
 	ipHeader->ip_dst = packetIp->ip_src;
 	ipHeader->ip_src = sourceIP;
@@ -193,6 +192,7 @@ void icmp_send_type3(struct sr_instance* sr,
 	icmpResponse->icmp_sum = 0;
 	icmpResponse->icmp_sum = cksum(icmpResponse, sizeof(sr_icmp_t3_hdr_t));
 print_hdrs(response, newLen);
+print_hdrs(packet, len);
 	sr_send_packet(sr, response, newLen, interface);
 	free(response);
 }
