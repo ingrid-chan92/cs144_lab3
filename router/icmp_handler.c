@@ -72,7 +72,7 @@ void icmp_send_echo_reply(struct sr_instance* sr,
 	uint32_t sourceIP = sr_get_interface(sr, interface)->ip;
 	struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t));
 	ipHeader->ip_dst = ipHeader->ip_src;
-	ipHeader->ip_src = sourceIP;	
+	ipHeader->ip_src = sourceIP;
 	ipHeader->ip_sum = 0;
 	ipHeader->ip_sum = cksum(ipHeader, sizeof(struct sr_ip_hdr));
 
@@ -156,18 +156,22 @@ void icmp_send_type3(struct sr_instance* sr,
 	icmp_set_ip_hdr(	sr_get_interface(sr, interface)->ip,
 						(struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t)), 
 						(struct sr_ip_hdr *) (response + sizeof(sr_ethernet_hdr_t)), newLen);
-	
+
 	/* Initialize type3 ICMP header */
 	struct sr_icmp_t3_hdr *icmpResponse = (struct sr_icmp_t3_hdr *) (response + sizeof(sr_ip_hdr_t) + sizeof(sr_ethernet_hdr_t));
 	icmpResponse->icmp_type = icmp_unreachable_type;
 	icmpResponse->icmp_code = code;
 	icmpResponse->unused = 0;
 	icmpResponse->next_mtu = 0;
-	memcpy(icmpResponse->data, response + sizeof(sr_ethernet_hdr_t), sizeof(sr_ip_hdr_t));
-	memcpy(icmpResponse->data + sizeof(sr_ip_hdr_t), packet, 8);
-print_hdrs(response, newLen);
+
+	if((sizeof(sr_ip_hdr_t) + 8) > ICMP_DATA_SIZE) {
+		memcpy(icmpResponse->data, packet + sizeof(sr_ethernet_hdr_t), ICMP_DATA_SIZE);
+	} else {
+		memcpy(icmpResponse->data, packet + sizeof(sr_ethernet_hdr_t), sizeof(sr_ip_hdr_t) + 8);
+	}
+
 	icmpResponse->icmp_sum = 0;
-	icmpResponse->icmp_sum = cksum(icmpResponse, sizeof(sr_icmp_t3_hdr_t) + 8);
+	icmpResponse->icmp_sum = cksum(icmpResponse, sizeof(sr_icmp_t3_hdr_t));
 
 	sr_send_packet(sr, response, newLen, interface);
 	free(response);
