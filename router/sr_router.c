@@ -209,7 +209,7 @@ void processForward(struct sr_instance* sr,
 			/* Could not find MAC address. Queue request */
 			struct sr_arpreq *req = sr_arpcache_queuereq(&cache, ntohl(ipHeader->ip_dst), packet, len, interface);
 			handle_arpreq(sr, req);
-			free(req);
+			sr_arpcache_dump(&cache);
 		}
 	}
 }
