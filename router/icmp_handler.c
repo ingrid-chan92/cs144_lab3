@@ -191,8 +191,7 @@ void icmp_send_type3(struct sr_instance* sr,
 	}
 	icmpResponse->icmp_sum = 0;
 	icmpResponse->icmp_sum = cksum(icmpResponse, sizeof(sr_icmp_t3_hdr_t));
-print_hdrs(response, newLen);
-print_hdrs(packet, len);
+
 	sr_send_packet(sr, response, newLen, interface);
 	free(response);
 }
