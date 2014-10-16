@@ -211,7 +211,7 @@ void processForward(struct sr_instance* sr,
 			handle_arpreq(sr, req);
 			free(req);
 		}
-	}	
+	}
 }
 
 int we_are_dest(struct sr_instance *sr, uint32_t ip) {
@@ -228,8 +228,8 @@ int we_are_dest(struct sr_instance *sr, uint32_t ip) {
 struct sr_rt *findLongestMatchPrefix(struct sr_rt *rt, struct sr_ip_hdr *ipHeader) {
 	struct sr_rt *closestMatch = NULL; 
 	while (rt != NULL) {
-		uint32_t mask = rt->mask.s_addr;	
-		if ((ntohl(ipHeader->ip_dst) & mask) == (rt->dest.s_addr & mask)) {
+		uint32_t mask = rt->mask.s_addr;
+		if (ntohl(ipHeader->ip_dst & mask) == ntohl(rt->dest.s_addr & mask)) {
 			if (closestMatch == NULL || (mask > closestMatch->mask.s_addr)) {
 				closestMatch = rt;
 			}

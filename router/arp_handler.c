@@ -28,8 +28,8 @@ void arp_send_reply(struct sr_instance *sr , uint8_t *packet, unsigned int len, 
     uint8_t *reply = malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
     struct sr_ethernet_hdr *replyEth = (struct sr_ethernet_hdr *) reply;
     struct sr_arp_hdr *replyArp = (struct sr_arp_hdr *) (reply + sizeof(struct sr_ethernet_hdr));
-    
-    /* Construct ethernet header */        
+
+    /* Construct ethernet header */ 
     for (i = 0; i < ETHER_ADDR_LEN; i++) {
         replyEth->ether_dhost[i] = ethHeader->ether_shost[i];
         replyEth->ether_shost[i] = sourceIf->addr[i];
@@ -115,6 +115,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
 
 	if (difftime(time(NULL), req->sent) > 1.0) {
 		if (req->times_sent >= 5) {
+printf("SENT 5 times\n");
 			/* Max number of ARP requests send. Host is unreachable */
 			struct sr_packet *pkt = req->packets;  
 			while (pkt != NULL) {
@@ -124,12 +125,11 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
 			sr_arpreq_destroy(&(sr->cache), req);
 
 		} else {
+printf("SENDING\n");
 			/* Can send request again */
-			arp_send_request(sr, req);			
+			arp_send_request(sr, req);
 			req->times_sent++;
 			req->sent = time(NULL);
 		}
-		req = req->next;
 	}
-
 }

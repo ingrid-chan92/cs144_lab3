@@ -38,8 +38,7 @@ void icmp_set_ip_hdr(uint32_t source, struct sr_ip_hdr *received, struct sr_ip_h
 
 	response->ip_tos = 0;
 	response->ip_len = htons(len - sizeof(sr_ethernet_hdr_t));
-	response->ip_id = 0;
-	response->ip_off = IP_DF;
+	response->ip_off = 0;
 	response->ip_ttl = 64;
 	response->ip_p = ip_protocol_icmp;
 
