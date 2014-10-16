@@ -193,9 +193,11 @@ void processForward(struct sr_instance* sr,
 	} else {
 		/* Match found. Lookup MAC address in ARP cache */
 		struct sr_arpentry *arpEntry = sr_arpcache_lookup(&(sr->cache), ntohl(closestMatch->gw.s_addr));
+
 		if (arpEntry != NULL) {
 			/* Found MAC address. Send the packet */
-			send_packet_to_dest(sr, packet, len, interface, arpEntry->mac, arpEntry->ip);
+			struct sr_rt *arpClosestMatch = findLongestMatchPrefix(sr->routing_table, ntohl(arpEntry->ip));
+			send_packet_to_dest(sr, packet, len, arpClosestMatch->interface, arpEntry->mac, ntohl(arpEntry->ip));
 
 		} else {
 			/* Could not find MAC address. Queue request for ARP  */
