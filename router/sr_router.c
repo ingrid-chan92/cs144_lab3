@@ -110,8 +110,10 @@ void processArp(struct sr_instance *sr , uint8_t *packet, unsigned int len, char
 
 		/* Found requests in queue waiting for this reply. Send all waiting packets */ 
 		struct sr_packet *waiting = req->packets;
+		struct sr_rt *rt = findLongestMatchPrefix(sr->routing_table, htonl(req->ip));
+
 		while (waiting != NULL) {
-			send_packet_to_dest(sr, waiting->buf, waiting->len, waiting->iface, arpHeader->ar_sha, arpHeader->ar_sip);
+			send_packet_to_dest(sr, waiting->buf, waiting->len, rt->interface, arpHeader->ar_sha, arpHeader->ar_sip);
 			waiting = waiting->next;
 		}
 
@@ -132,7 +134,6 @@ void processIP(struct sr_instance* sr,
         char* interface) {
 
 	struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
-
 	if (ipHeader->ip_p == ip_protocol_icmp) {
 		/* ICMP request */
 
@@ -195,7 +196,6 @@ void processForward(struct sr_instance* sr,
 		if (arpEntry != NULL) {
 			/* Found MAC address. Send the packet */
 			send_packet_to_dest(sr, packet, len, interface, arpEntry->mac, arpEntry->ip);
-			free(arpEntry);
 
 		} else {
 			/* Could not find MAC address. Queue request for ARP  */

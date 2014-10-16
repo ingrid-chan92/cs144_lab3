@@ -68,7 +68,6 @@ void send_packet_to_dest(struct sr_instance *sr , uint8_t *packet, unsigned int 
         ethHeader->ether_dhost[i] = dest_mac[i];
     }
     ipHeader->ip_dst = dest_ip;
-	ipHeader->ip_src = sourceIf->ip;
 	ipHeader->ip_sum = 0;
 	ipHeader->ip_sum = cksum(ipHeader, sizeof(sr_ip_hdr_t));
 
@@ -107,6 +106,7 @@ void arp_send_request(struct sr_instance *sr , struct sr_arpreq *arp) {
 		reqArp->ar_sha[i] = sourceIf->addr[i];
 	}
 	sr_send_packet(sr, req, sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t), sourceIf->name);
+	free(req);
 
 }
 
