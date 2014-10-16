@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-
+#include <string.h>
 
 #include "sr_if.h"
 #include "sr_rt.h"
@@ -82,7 +82,6 @@ void sr_handlepacket(struct sr_instance* sr,
   printf("*** -> Received packet of length %d \n",len);
 
 	struct sr_if *this_if = sr_get_interface(sr, interface);
-
 	if (ethertype(packet) == ethertype_arp) {			/* ARP packet */
 		struct sr_arp_hdr *arpHeader = (struct sr_arp_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
 
@@ -106,29 +105,26 @@ void sr_handlepacket(struct sr_instance* sr,
 void processArp(struct sr_instance *sr , uint8_t *packet, unsigned int len, char *interface) {
 
 	struct sr_arp_hdr *arpHeader = (struct sr_arp_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
-	struct sr_arpcache cache = sr->cache;
 
-	unsigned short command = ntohs(arpHeader->ar_op);
-	if (command == arp_op_request) {
+	/* Put ARP reply into cache */
+	struct sr_arpreq *req = sr_arpcache_insert(&(sr->cache), arpHeader->ar_sha, arpHeader->ar_sip);
+	if (req != NULL) {
+		/* Found requests in queue waiting for this reply. Send all waiting packets */ 
+		struct sr_packet *waiting = req->packets;
+		while (waiting != NULL) {
+			send_packet_to_dest(sr, waiting->buf, waiting->len, waiting->iface, arpHeader->ar_sha, arpHeader->ar_sip);
+			waiting = waiting->next;
+		}
+
+		/* Destroy arp request when complete */
+		sr_arpreq_destroy(&(sr->cache), req);
+	}
+
+	if (ntohs(arpHeader->ar_op) == arp_op_request) {
 		/* Reply to sender with our information */
 		arp_send_reply(sr, packet, len, interface);
-
-	} else if (command == arp_op_reply) {
-		/* Put ARP reply into cache */
-		struct sr_arpreq *req = sr_arpcache_insert(&cache, arpHeader->ar_sha, arpHeader->ar_sip);
-
-		if (req != NULL) {
-			/* Found requests in queue waiting for this reply. Send all waiting packets */ 
-			struct sr_packet *waiting = req->packets;
-			while (waiting != NULL) {
-				send_packet_to_dest(sr, waiting->buf, waiting->len, waiting->iface, arpHeader->ar_sha, arpHeader->ar_sip);
-				waiting = waiting->next;
-			}
-
-			/* Destroy arp request when complete */
-			sr_arpreq_destroy(&cache, req);
-		}
 	}
+
 }
 
 void processIP(struct sr_instance* sr,
@@ -197,19 +193,16 @@ void processForward(struct sr_instance* sr,
 
 	} else {
 		/* Match found. Lookup MAC address in ARP cache */
-		struct sr_arpcache cache = sr->cache;
-		struct sr_arpentry *arpEntry = sr_arpcache_lookup(&cache, ntohl(ipHeader->ip_dst));
-
+		struct sr_arpentry *arpEntry = sr_arpcache_lookup(&(sr->cache), closestMatch->gw.s_addr);
 		if (arpEntry != NULL) {
 			/* Found MAC address. Send the packet */
 			send_packet_to_dest(sr, packet, len, interface, arpEntry->mac, arpEntry->ip);
 			free(arpEntry);
 
 		} else {
-			/* Could not find MAC address. Queue request */
-			struct sr_arpreq *req = sr_arpcache_queuereq(&cache, ntohl(ipHeader->ip_dst), packet, len, interface);
-			handle_arpreq(sr, req);
-			sr_arpcache_dump(&cache);
+			/* Could not find MAC address. Queue request for ARP  */
+			memset(packet, 0, 6);
+			sr_arpcache_queuereq(&(sr->cache), closestMatch->gw.s_addr, packet, len, closestMatch->interface);
 		}
 	}
 }

@@ -56,7 +56,7 @@ void arp_send_reply(struct sr_instance *sr , uint8_t *packet, unsigned int len, 
 }
 
 void send_packet_to_dest(struct sr_instance *sr , uint8_t *packet, unsigned int len, char *interface, unsigned char *dest_mac, uint32_t dest_ip) {
-    
+
     int i;
     struct sr_ethernet_hdr *ethHeader = (struct sr_ethernet_hdr *) packet;
     struct sr_ip_hdr *ipHeader = (struct sr_ip_hdr *) (packet + sizeof(struct sr_ethernet_hdr));
@@ -72,18 +72,24 @@ void send_packet_to_dest(struct sr_instance *sr , uint8_t *packet, unsigned int 
 
 }
 
-void arp_send_request(struct sr_instance *sr , struct sr_arpreq *arpReq) {
+void arp_send_request(struct sr_instance *sr , struct sr_arpreq *arp) {
 
 	int i;
-	struct sr_rt *rt = findLongestMatchPrefix(sr->routing_table, arpReq->ip);
+	struct sr_rt *rt = findLongestMatchPrefix(sr->routing_table, arp->ip);
+	if (rt == NULL) {
+		/* No matching prefix */
+		printf("No matching Prefix found for %d", arp->ip);
+		return;
+	}
+
 	struct sr_if *sourceIf = sr_get_interface(sr, rt->interface);
-	
+
 	/* Initialize request packet */
 	uint8_t *req = malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
 	struct sr_ethernet_hdr *reqEth = (struct sr_ethernet_hdr *) req;
 	struct sr_arp_hdr *reqArp = (struct sr_arp_hdr *) (req + sizeof(struct sr_ethernet_hdr));
-	
-	/* Construct ethernet header */        
+
+	/* Construct ethernet header */
 	for (i = 0; i < ETHER_ADDR_LEN; i++) {
 	    reqEth->ether_dhost[i] = 0xff;
 	    reqEth->ether_shost[i] = sourceIf->addr[i];
@@ -92,18 +98,18 @@ void arp_send_request(struct sr_instance *sr , struct sr_arpreq *arpReq) {
 
 	/* Construct ARP header */
 	reqArp->ar_hrd = htons(arp_hrd_ethernet);
-	reqArp->ar_pro = htons(0x0800);				/*IPv4 protocol type*/
-	reqArp->ar_hln = htons(6);					/*Ethernet addresses size*/
-	reqArp->ar_pln = htons(4);					/*IPv4 address size*/
+	reqArp->ar_pro = htons(ethertype_ip);				/*IPv4 protocol type*/
+	reqArp->ar_hln = 6;					/*Ethernet addresses size*/
+	reqArp->ar_pln = 4;					/*IPv4 address size*/
 	reqArp->ar_op = htons(arp_op_request);
 	reqArp->ar_sip = sourceIf->ip;
-	reqArp->ar_tip = 0x0000;
+	reqArp->ar_tip = 0;
 	for (i = 0; i < ETHER_ADDR_LEN; i++) {
+		reqArp->ar_tha[i] = 0x0;
 	    reqArp->ar_sha[i] = sourceIf->addr[i];
-	    reqArp->ar_tha[i] = 0xff;
 	}
 
-	sr_send_packet(sr, req, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), rt->interface);
+	sr_send_packet(sr, req, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), sourceIf->name);
 	free(req);
 
 }
@@ -112,7 +118,6 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
 
 	if (difftime(time(NULL), req->sent) > 1.0) {
 		if (req->times_sent >= 5) {
-printf("SENT 5 times\n");
 			/* Max number of ARP requests send. Host is unreachable */
 			struct sr_packet *pkt = req->packets;
 			while (pkt != NULL) {
@@ -122,7 +127,6 @@ printf("SENT 5 times\n");
 			sr_arpreq_destroy(&(sr->cache), req);
 
 		} else {
-printf("SENDING\n");
 			/* Can send request again */
 			arp_send_request(sr, req);
 			req->times_sent++;

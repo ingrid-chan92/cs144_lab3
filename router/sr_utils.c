@@ -10,7 +10,7 @@ struct sr_rt *findLongestMatchPrefix(struct sr_rt *rt, uint32_t ip_dst) {
 	struct sr_rt *closestMatch = NULL; 
 	while (rt != NULL) {
 		uint32_t mask = rt->mask.s_addr;
-		if (ntohl(ip_dst & mask) == ntohl(rt->dest.s_addr & mask)) {
+		if ((ip_dst & mask) == (rt->dest.s_addr & mask)) {
 			if (closestMatch == NULL || (mask > closestMatch->mask.s_addr)) {
 				closestMatch = rt;
 			}
